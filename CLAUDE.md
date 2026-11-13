@@ -21,12 +21,15 @@ Run typecheck, lint and tests after every change. A task is not done until all t
 
 ## Architecture (do not break)
 Screen -> Service -> Repository interface -> SQLite adapter.
-- `src/app/` routes and layouts only
+- `src/app/` routes and layouts only. Each native tab that pushes screens is a group folder
+  with its own Stack, e.g. `src/app/(equipment)/_layout.tsx` (Expo's documented pattern)
 - `src/domain/` types, validation, weight rules (pure TS, no React, no SQL)
 - `src/services/` CatalogService, WorkoutService; return typed results
 - `src/data/` repository interfaces, expo-sqlite adapters, migrations, seeds
 - `src/features/{catalog,workout,history}/` UI per feature
-- `tests/`
+- `tests/` — data-layer tests run the real SQL in Jest via `tests/helpers/node-sqlite-db.ts`
+  (Node's built-in `node:sqlite`); the data layer depends on the small `Db` type in `src/data/db.ts`
+- Services are created once in `src/features/services-provider.tsx`; screens get them with `useServices()`
 - No raw SQL outside `src/data/`. Parameterized queries only.
 
 ## Data rules

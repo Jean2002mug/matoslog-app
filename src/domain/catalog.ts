@@ -32,6 +32,16 @@ export interface Exercise {
   sortOrder: number;
 }
 
+export interface EquipmentWithExercises {
+  equipment: Equipment;
+  exercises: Exercise[];
+}
+
+export interface ExerciseWithEquipment {
+  exercise: Exercise;
+  equipment: Equipment;
+}
+
 /** Converts centi-kg to a kg string without trailing zeros: 2000 -> "20", 1025 -> "10.25". */
 export function formatKg(centiKg: number): string {
   return String(centiKg / 100);

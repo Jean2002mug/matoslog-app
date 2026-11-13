@@ -1,52 +1,47 @@
-import { describe, expect, it, jest } from '@jest/globals';
+import { afterEach, describe, expect, it } from '@jest/globals';
 
+import { migrate } from '@/data/migrations';
 import { seedCatalog } from '@/data/seed';
 import { SEED_EQUIPMENT, SEED_EXERCISES } from '@/data/seed-data';
 
-/** A fake database that records every statement instead of running it. */
-function createFakeDb() {
-  const calls: { sql: string; params: unknown }[] = [];
-  let transactions = 0;
-  const db = {
-    runAsync: jest.fn(async (sql: string, params: unknown) => {
-      calls.push({ sql, params });
-      return { changes: 1, lastInsertRowId: 0 };
-    }),
-    withTransactionAsync: jest.fn(async (task: () => Promise<void>) => {
-      transactions++;
-      await task();
-    }),
-  };
-  return { db, calls, transactionCount: () => transactions };
+import { createTestDb, type TestDb } from '../helpers/node-sqlite-db';
+
+let db: TestDb;
+afterEach(() => db.close());
+
+const count = (testDb: TestDb, table: string) =>
+  (testDb.raw.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
+
+async function freshDb() {
+  db = createTestDb();
+  db.raw.exec('PRAGMA foreign_keys = ON');
+  await migrate(db);
+  return db;
 }
 
 describe('seedCatalog', () => {
-  it('inserts every seed row inside one transaction', async () => {
-    const { db, calls, transactionCount } = createFakeDb();
-    await seedCatalog(db as never);
+  it('inserts the 2 equipment and 4 exercises', async () => {
+    await freshDb();
+    await seedCatalog(db);
 
-    expect(transactionCount()).toBe(1);
-    expect(calls).toHaveLength(SEED_EQUIPMENT.length + SEED_EXERCISES.length);
+    expect(count(db, 'equipment')).toBe(SEED_EQUIPMENT.length);
+    expect(count(db, 'exercise')).toBe(SEED_EXERCISES.length);
   });
 
-  it('is repeatable: uses INSERT OR IGNORE with bound parameters only', async () => {
-    const { db, calls } = createFakeDb();
-    await seedCatalog(db as never);
+  it('is repeatable: running it again creates no duplicates', async () => {
+    await freshDb();
+    await seedCatalog(db);
+    await seedCatalog(db);
+    await seedCatalog(db);
 
-    calls.forEach(({ sql, params }) => {
-      expect(sql.trim()).toMatch(/^INSERT OR IGNORE INTO/);
-      expect(Array.isArray(params)).toBe(true);
-      // No seed values are glued into the SQL text itself.
-      expect(sql).not.toContain('Dumbbells');
-    });
+    expect(count(db, 'equipment')).toBe(2);
+    expect(count(db, 'exercise')).toBe(4);
   });
 
-  it('inserts equipment before exercises (foreign key order)', async () => {
-    const { db, calls } = createFakeDb();
-    await seedCatalog(db as never);
+  it('satisfies the foreign keys (every exercise points at real equipment)', async () => {
+    await freshDb();
+    await seedCatalog(db);
 
-    const firstExercise = calls.findIndex((c) => c.sql.includes('INTO exercise'));
-    const lastEquipment = calls.map((c) => c.sql.includes('INTO equipment')).lastIndexOf(true);
-    expect(lastEquipment).toBeLessThan(firstExercise);
+    expect(db.raw.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
   });
 });

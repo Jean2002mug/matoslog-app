@@ -1,5 +1,5 @@
 import type { CatalogRepository } from '@/data/catalog-repository';
-import type { Equipment } from '@/domain/catalog';
+import type { Equipment, EquipmentWithExercises, ExerciseWithEquipment } from '@/domain/catalog';
 import { err, ok, type Result } from '@/domain/result';
 
 /**
@@ -15,6 +15,28 @@ export class CatalogService {
     } catch (error) {
       console.error('CatalogService.listEquipment failed', error);
       return err('Could not load equipment.');
+    }
+  }
+
+  async getEquipmentWithExercises(equipmentId: string): Promise<Result<EquipmentWithExercises>> {
+    try {
+      const equipment = await this.repository.getEquipment(equipmentId);
+      if (!equipment) return err('Equipment not found.');
+      const exercises = await this.repository.listExercises(equipmentId);
+      return ok({ equipment, exercises });
+    } catch (error) {
+      console.error('CatalogService.getEquipmentWithExercises failed', error);
+      return err('Could not load exercises.');
+    }
+  }
+
+  async getExerciseWithEquipment(exerciseId: string): Promise<Result<ExerciseWithEquipment>> {
+    try {
+      const found = await this.repository.getExerciseWithEquipment(exerciseId);
+      return found ? ok(found) : err('Exercise not found.');
+    } catch (error) {
+      console.error('CatalogService.getExerciseWithEquipment failed', error);
+      return err('Could not load exercise.');
     }
   }
 }

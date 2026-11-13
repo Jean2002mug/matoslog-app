@@ -1,8 +1,7 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
-
+import type { Db } from './db';
 import { SEED_EQUIPMENT, SEED_EXERCISES } from './seed-data';
 
-type SeedDb = Pick<SQLiteDatabase, 'runAsync' | 'withTransactionAsync'>;
+type SeedDb = Pick<Db, 'runAsync' | 'withTransactionAsync'>;
 
 /**
  * Inserts the built-in catalog. `INSERT OR IGNORE` skips any row whose ID already
