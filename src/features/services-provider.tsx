@@ -7,12 +7,13 @@ import { SqliteWorkoutRepository } from '@/data/sqlite-workout-repository';
 import { CatalogService } from '@/services/catalog-service';
 import { WorkoutService } from '@/services/workout-service';
 
-interface Services {
+export interface Services {
   catalog: CatalogService;
   workout: WorkoutService;
 }
 
-const ServicesContext = createContext<Services | null>(null);
+/** Exported so screen tests can supply services backed by a test database. */
+export const ServicesContext = createContext<Services | null>(null);
 
 /**
  * Creates the services ONCE for the whole app and shares them with every screen.

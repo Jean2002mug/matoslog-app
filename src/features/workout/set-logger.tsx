@@ -1,11 +1,12 @@
 import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AppButton } from '@/components/ui/app-button';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { ScreenScrollView } from '@/components/ui/screen-scroll-view';
+import { Spacing } from '@/constants/theme';
 import { describeWeightConvention, formatKg, type ExerciseWithEquipment } from '@/domain/catalog';
 import { useServices } from '@/features/services-provider';
 import { useTheme } from '@/hooks/use-theme';
@@ -57,7 +58,9 @@ export function SetLogger({ exerciseId }: { exerciseId: string }) {
       setError(result.error);
       return;
     }
-    // Weight and reps stay filled in: the next set is often the same.
+    // Close the keypad so the new set is visible. Weight and reps stay filled in,
+    // because the next set is often the same.
+    Keyboard.dismiss();
     await refresh();
   }
 
@@ -70,125 +73,100 @@ export function SetLogger({ exerciseId }: { exerciseId: string }) {
     await refresh();
   }
 
-  if (exerciseState.status === 'loading') {
-    return (
-      <ThemedView style={styles.container}>
-        <ActivityIndicator style={styles.centered} />
-      </ThemedView>
-    );
-  }
-  if (exerciseState.status === 'error') {
-    return (
-      <ThemedView style={styles.container}>
-        <ThemedText style={styles.centered} themeColor="textSecondary">
-          {exerciseState.message}
-        </ThemedText>
-      </ThemedView>
-    );
-  }
-
-  const { exercise, equipment } = exerciseState.data;
   const sets =
     activeState.status === 'ready' && activeState.active
       ? activeState.active.sets.filter((s) => s.exerciseId === exerciseId)
       : [];
 
-  const inputStyle = [
-    styles.input,
-    { color: theme.text, backgroundColor: theme.backgroundElement },
-  ];
+  const inputStyle = [styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }];
 
+  // <Stack.Screen> renders nothing, so the scroll view is still the screen's first child.
   return (
-    <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: exercise.name }} />
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled">
-        <ThemedText type="small" themeColor="textSecondary">
-          {describeWeightConvention(equipment)}
-        </ThemedText>
+    <>
+      {exerciseState.status === 'ready' && (
+        <Stack.Screen options={{ title: exerciseState.data.exercise.name }} />
+      )}
+      <ScreenScrollView contentContainerStyle={styles.content}>
+        {exerciseState.status === 'loading' && <ActivityIndicator />}
 
-        <View style={styles.fields}>
-          <View style={styles.field}>
-            <ThemedText type="smallBold" nativeID="weight-label">
-              Weight (kg)
-            </ThemedText>
-            <TextInput
-              accessibilityLabelledBy="weight-label"
-              style={inputStyle}
-              value={weightText}
-              onChangeText={setWeightText}
-              keyboardType="decimal-pad"
-              placeholder="e.g. 22.5"
-              placeholderTextColor={theme.textSecondary}
-            />
-          </View>
-          <View style={styles.field}>
-            <ThemedText type="smallBold" nativeID="reps-label">
-              Reps
-            </ThemedText>
-            <TextInput
-              accessibilityLabelledBy="reps-label"
-              style={inputStyle}
-              value={repsText}
-              onChangeText={setRepsText}
-              keyboardType="number-pad"
-              placeholder="e.g. 8"
-              placeholderTextColor={theme.textSecondary}
-            />
-          </View>
-        </View>
-
-        <AppButton label="Add set" disabled={busy} onPress={handleAddSet} />
-
-        {error ? (
-          <ThemedText type="small" accessibilityLiveRegion="polite" style={styles.error}>
-            {error}
-          </ThemedText>
-        ) : null}
-
-        <ThemedText type="smallBold" style={styles.sectionTitle}>
-          This workout
-        </ThemedText>
-        {sets.length === 0 ? (
-          <ThemedText type="small" themeColor="textSecondary">
-            No sets yet for this exercise.
-          </ThemedText>
-        ) : (
-          sets.map((set, index) => (
-            <ThemedView key={set.id} type="backgroundElement" style={styles.setRow}>
-              <ThemedText style={styles.setText}>
-                Set {index + 1} · {formatKg(set.weightCg)} kg × {set.reps}
-              </ThemedText>
-              <AppButton
-                label="Delete"
-                variant="secondary"
-                compact
-                disabled={busy}
-                accessibilityLabel={`Delete set ${index + 1}`}
-                onPress={() => handleDeleteSet(set.id)}
-              />
-            </ThemedView>
-          ))
+        {exerciseState.status === 'error' && (
+          <ThemedText themeColor="textSecondary">{exerciseState.message}</ThemedText>
         )}
-      </ScrollView>
-    </ThemedView>
+
+        {exerciseState.status === 'ready' && (
+          <>
+            <ThemedText type="small" themeColor="textSecondary">
+              {describeWeightConvention(exerciseState.data.equipment)}
+            </ThemedText>
+
+            <View style={styles.fields}>
+              <View style={styles.field}>
+                <ThemedText type="smallBold">Weight (kg)</ThemedText>
+                <TextInput
+                  accessibilityLabel="Weight in kg"
+                  style={inputStyle}
+                  value={weightText}
+                  onChangeText={setWeightText}
+                  keyboardType="decimal-pad"
+                  placeholder="e.g. 22.5"
+                  placeholderTextColor={theme.textSecondary}
+                />
+              </View>
+              <View style={styles.field}>
+                <ThemedText type="smallBold">Reps</ThemedText>
+                <TextInput
+                  accessibilityLabel="Reps"
+                  style={inputStyle}
+                  value={repsText}
+                  onChangeText={setRepsText}
+                  keyboardType="number-pad"
+                  placeholder="e.g. 8"
+                  placeholderTextColor={theme.textSecondary}
+                />
+              </View>
+            </View>
+
+            <AppButton label="Add set" disabled={busy} onPress={handleAddSet} />
+
+            {error ? (
+              <ThemedText type="small" accessibilityLiveRegion="polite" style={styles.error}>
+                {error}
+              </ThemedText>
+            ) : null}
+
+            <ThemedText type="smallBold" style={styles.sectionTitle}>
+              This workout
+            </ThemedText>
+            {sets.length === 0 ? (
+              <ThemedText type="small" themeColor="textSecondary">
+                No sets yet for this exercise.
+              </ThemedText>
+            ) : (
+              sets.map((set, index) => (
+                <ThemedView key={set.id} type="backgroundElement" style={styles.setRow}>
+                  <ThemedText style={styles.setText}>
+                    Set {index + 1} · {formatKg(set.weightCg)} kg × {set.reps}
+                  </ThemedText>
+                  <AppButton
+                    label="Delete"
+                    variant="secondary"
+                    compact
+                    disabled={busy}
+                    accessibilityLabel={`Delete set ${index + 1}`}
+                    onPress={() => handleDeleteSet(set.id)}
+                  />
+                </ThemedView>
+              ))
+            )}
+          </>
+        )}
+      </ScreenScrollView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  scroll: {
-    width: '100%',
-    maxWidth: MaxContentWidth,
-  },
   content: {
-    padding: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
     gap: Spacing.three,
   },
   fields: {
@@ -221,8 +199,5 @@ const styles = StyleSheet.create({
   },
   setText: {
     flex: 1,
-  },
-  centered: {
-    marginTop: Spacing.four,
   },
 });

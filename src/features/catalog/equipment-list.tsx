@@ -1,11 +1,10 @@
 import { Link } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet } from 'react-native';
+import { ActivityIndicator } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { ListRow } from '@/components/ui/list-row';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { ScreenScrollView } from '@/components/ui/screen-scroll-view';
 import { describeWeightConvention, type Equipment } from '@/domain/catalog';
 import { useServices } from '@/features/services-provider';
 import { ActiveWorkoutBanner } from '@/features/workout/active-workout-banner';
@@ -35,52 +34,28 @@ export function EquipmentList() {
     };
   }, [catalog]);
 
+  // The scroll view is the screen's first child — see ScreenScrollView for why.
   return (
-    <ThemedView style={styles.container}>
-      {state.status === 'loading' && <ActivityIndicator style={styles.centered} />}
+    <ScreenScrollView>
+      <ActiveWorkoutBanner />
 
-      {state.status === 'error' && (
-        <ThemedText style={styles.centered} themeColor="textSecondary">
-          {state.message}
-        </ThemedText>
+      {state.status === 'loading' && <ActivityIndicator />}
+
+      {state.status === 'error' && <ThemedText themeColor="textSecondary">{state.message}</ThemedText>}
+
+      {state.status === 'ready' && state.equipment.length === 0 && (
+        <ThemedText themeColor="textSecondary">No equipment yet.</ThemedText>
       )}
 
-      {state.status === 'ready' && (
-        <FlatList
-          style={styles.list}
-          data={state.equipment}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          ListHeaderComponent={<ActiveWorkoutBanner />}
-          ListEmptyComponent={<ThemedText themeColor="textSecondary">No equipment yet.</ThemedText>}
-          renderItem={({ item }) => (
-            <Link
-              href={{ pathname: '/equipment/[equipmentId]', params: { equipmentId: item.id } }}
-              asChild>
-              <ListRow title={item.name} subtitle={describeWeightConvention(item)} />
-            </Link>
-          )}
-        />
-      )}
-    </ThemedView>
+      {state.status === 'ready' &&
+        state.equipment.map((item) => (
+          <Link
+            key={item.id}
+            href={{ pathname: '/equipment/[equipmentId]', params: { equipmentId: item.id } }}
+            asChild>
+            <ListRow title={item.name} subtitle={describeWeightConvention(item)} />
+          </Link>
+        ))}
+    </ScreenScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  list: {
-    width: '100%',
-    maxWidth: MaxContentWidth,
-  },
-  listContent: {
-    gap: Spacing.two,
-    padding: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-  },
-  centered: {
-    marginTop: Spacing.four,
-  },
-});

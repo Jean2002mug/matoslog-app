@@ -1,11 +1,10 @@
 import { Link, Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet } from 'react-native';
+import { ActivityIndicator } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { ListRow } from '@/components/ui/list-row';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { ScreenScrollView } from '@/components/ui/screen-scroll-view';
 import { describeWeightConvention, type EquipmentWithExercises } from '@/domain/catalog';
 import { useServices } from '@/features/services-provider';
 
@@ -34,61 +33,36 @@ export function ExerciseList({ equipmentId }: { equipmentId: string }) {
     };
   }, [catalog, equipmentId]);
 
+  // <Stack.Screen> renders nothing, so the scroll view is still the screen's first child.
   return (
-    <ThemedView style={styles.container}>
-      {state.status === 'loading' && <ActivityIndicator style={styles.centered} />}
+    <>
+      {state.status === 'ready' && <Stack.Screen options={{ title: state.data.equipment.name }} />}
+      <ScreenScrollView>
+        {state.status === 'loading' && <ActivityIndicator />}
 
-      {state.status === 'error' && (
-        <ThemedText style={styles.centered} themeColor="textSecondary">
-          {state.message}
-        </ThemedText>
-      )}
+        {state.status === 'error' && (
+          <ThemedText themeColor="textSecondary">{state.message}</ThemedText>
+        )}
 
-      {state.status === 'ready' && (
-        <>
-          <Stack.Screen options={{ title: state.data.equipment.name }} />
-          <FlatList
-            style={styles.list}
-            data={state.data.exercises}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
-            ListHeaderComponent={
-              <ThemedText type="small" themeColor="textSecondary">
-                {describeWeightConvention(state.data.equipment)}
-              </ThemedText>
-            }
-            ListEmptyComponent={
+        {state.status === 'ready' && (
+          <>
+            <ThemedText type="small" themeColor="textSecondary">
+              {describeWeightConvention(state.data.equipment)}
+            </ThemedText>
+            {state.data.exercises.length === 0 && (
               <ThemedText themeColor="textSecondary">No exercises for this equipment.</ThemedText>
-            }
-            renderItem={({ item }) => (
+            )}
+            {state.data.exercises.map((item) => (
               <Link
+                key={item.id}
                 href={{ pathname: '/exercise/[exerciseId]', params: { exerciseId: item.id } }}
                 asChild>
                 <ListRow title={item.name} />
               </Link>
-            )}
-          />
-        </>
-      )}
-    </ThemedView>
+            ))}
+          </>
+        )}
+      </ScreenScrollView>
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  list: {
-    width: '100%',
-    maxWidth: MaxContentWidth,
-  },
-  listContent: {
-    gap: Spacing.two,
-    padding: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-  },
-  centered: {
-    marginTop: Spacing.four,
-  },
-});
