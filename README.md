@@ -116,4 +116,5 @@ npm test
 
 ## License
 
-See [LICENSE](LICENSE).
+[MIT](LICENSE) © 2026 Jean Mugabe. Parts of the project come from the Expo starter template,
+also MIT-licensed.
