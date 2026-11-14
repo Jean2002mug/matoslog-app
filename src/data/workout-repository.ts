@@ -1,3 +1,4 @@
+import type { CompletedWorkoutDetail, CompletedWorkoutSummary } from '@/domain/history';
 import type { ActiveWorkout, NewSet, WorkoutSet } from '@/domain/workout';
 
 /**
@@ -20,4 +21,10 @@ export interface WorkoutRepository {
 
   /** Permanently deletes the active workout and its sets. Throws `no_active_workout`. */
   discardActiveWorkout(): Promise<void>;
+
+  /** Completed workouts, most recently finished first, with set and exercise counts. */
+  listCompletedWorkouts(): Promise<CompletedWorkoutSummary[]>;
+
+  /** One completed workout with its sets grouped by exercise, or null if not found or still active. */
+  getCompletedWorkout(workoutId: string): Promise<CompletedWorkoutDetail | null>;
 }

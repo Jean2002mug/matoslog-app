@@ -9,7 +9,7 @@ import type { CatalogRepository } from './catalog-repository';
 import type { Db } from './db';
 
 /** Rows exactly as SQLite returns them (snake_case column names). */
-interface EquipmentRow {
+export interface EquipmentRow {
   id: string;
   name: string;
   weight_convention: string;
@@ -17,7 +17,7 @@ interface EquipmentRow {
   sort_order: number;
 }
 
-interface ExerciseRow {
+export interface ExerciseRow {
   id: string;
   equipment_id: string;
   name: string;
@@ -27,7 +27,8 @@ interface ExerciseRow {
 const EQUIPMENT_COLUMNS = 'id, name, weight_convention, bar_weight_cg, sort_order';
 const EXERCISE_COLUMNS = 'id, equipment_id, name, sort_order';
 
-function toEquipment(row: EquipmentRow): Equipment {
+/** Shared with the workout repository, which joins equipment into history queries. */
+export function toEquipment(row: EquipmentRow): Equipment {
   if (!isWeightConvention(row.weight_convention)) {
     throw new Error(`Unknown weight convention "${row.weight_convention}" on equipment ${row.id}`);
   }
@@ -40,7 +41,7 @@ function toEquipment(row: EquipmentRow): Equipment {
   };
 }
 
-function toExercise(row: ExerciseRow): Exercise {
+export function toExercise(row: ExerciseRow): Exercise {
   return {
     id: row.id,
     equipmentId: row.equipment_id,

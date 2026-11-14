@@ -1,4 +1,9 @@
 import {
+  groupSetsByExercise,
+  type CompletedWorkoutDetail,
+  type CompletedWorkoutSummary,
+} from '@/domain/history';
+import {
   WorkoutError,
   type ActiveWorkout,
   type NewSet,
@@ -8,6 +13,7 @@ import {
 } from '@/domain/workout';
 
 import type { Db } from './db';
+import { toEquipment, toExercise } from './sqlite-catalog-repository';
 import type { WorkoutRepository } from './workout-repository';
 
 /** Rows exactly as SQLite returns them (snake_case column names). */
@@ -26,6 +32,22 @@ interface WorkoutSetRow {
   reps: number;
   position: number;
   created_at: string;
+}
+
+interface SummaryRow extends WorkoutRow {
+  set_count: number;
+  exercise_count: number;
+}
+
+/** A set joined with its exercise and equipment; columns are prefixed to avoid name clashes. */
+interface SetDetailRow extends WorkoutSetRow {
+  ex_name: string;
+  ex_sort_order: number;
+  eq_id: string;
+  eq_name: string;
+  eq_weight_convention: string;
+  eq_bar_weight_cg: number | null;
+  eq_sort_order: number;
 }
 
 const toWorkout = (row: WorkoutRow): Workout => ({
@@ -167,5 +189,64 @@ export class SqliteWorkoutRepository implements WorkoutRepository {
       await this.db.runAsync(`DELETE FROM workout_set WHERE workout_id = ?`, [workout.id]);
       await this.db.runAsync(`DELETE FROM workout WHERE id = ? AND status = 'active'`, [workout.id]);
     });
+  }
+
+  async listCompletedWorkouts(): Promise<CompletedWorkoutSummary[]> {
+    // LEFT JOIN so a workout still appears even if it somehow has no sets.
+    const rows = await this.db.getAllAsync<SummaryRow>(
+      `SELECT w.id, w.status, w.started_at, w.finished_at,
+              COUNT(s.id) AS set_count,
+              COUNT(DISTINCT s.exercise_id) AS exercise_count
+       FROM workout w
+       LEFT JOIN workout_set s ON s.workout_id = w.id
+       WHERE w.status = 'completed'
+       GROUP BY w.id
+       ORDER BY w.finished_at DESC, w.id`,
+    );
+    return rows.map((row) => ({
+      workout: toWorkout(row),
+      setCount: row.set_count,
+      exerciseCount: row.exercise_count,
+    }));
+  }
+
+  async getCompletedWorkout(workoutId: string): Promise<CompletedWorkoutDetail | null> {
+    const workoutRow = await this.db.getFirstAsync<WorkoutRow>(
+      `SELECT id, status, started_at, finished_at FROM workout WHERE id = ? AND status = 'completed'`,
+      [workoutId],
+    );
+    if (!workoutRow) return null;
+
+    const rows = await this.db.getAllAsync<SetDetailRow>(
+      `SELECT s.id, s.workout_id, s.exercise_id, s.weight_cg, s.reps, s.position, s.created_at,
+              e.name AS ex_name, e.sort_order AS ex_sort_order,
+              q.id AS eq_id, q.name AS eq_name, q.weight_convention AS eq_weight_convention,
+              q.bar_weight_cg AS eq_bar_weight_cg, q.sort_order AS eq_sort_order
+       FROM workout_set s
+       JOIN exercise e  ON e.id = s.exercise_id
+       JOIN equipment q ON q.id = e.equipment_id
+       WHERE s.workout_id = ?
+       ORDER BY s.position`,
+      [workoutId],
+    );
+
+    const items = rows.map((row) => ({
+      set: toWorkoutSet(row),
+      exercise: toExercise({
+        id: row.exercise_id,
+        equipment_id: row.eq_id,
+        name: row.ex_name,
+        sort_order: row.ex_sort_order,
+      }),
+      equipment: toEquipment({
+        id: row.eq_id,
+        name: row.eq_name,
+        weight_convention: row.eq_weight_convention,
+        bar_weight_cg: row.eq_bar_weight_cg,
+        sort_order: row.eq_sort_order,
+      }),
+    }));
+
+    return { workout: toWorkout(workoutRow), groups: groupSetsByExercise(items) };
   }
 }

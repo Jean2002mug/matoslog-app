@@ -21,8 +21,10 @@ Run typecheck, lint and tests after every change. A task is not done until all t
 
 ## Architecture (do not break)
 Screen -> Service -> Repository interface -> SQLite adapter.
-- `src/app/` routes and layouts only. Each native tab that pushes screens is a group folder
-  with its own Stack, e.g. `src/app/(equipment)/_layout.tsx` (Expo's documented pattern)
+- `src/app/` routes and layouts only. Each native tab that pushes screens is a folder with its
+  own Stack (Expo's documented pattern): `(equipment)/` (a group, URL `/`) and `history/` (URL `/history`)
+- Every screen's first child must be `ScreenScrollView` (`src/components/ui/`), not a wrapped
+  list or FlatList; otherwise iOS hides content under the header and scroll-to-top breaks
 - `src/domain/` types, validation, weight rules (pure TS, no React, no SQL)
 - `src/services/` CatalogService, WorkoutService; return typed results
 - `src/data/` repository interfaces, expo-sqlite adapters, migrations, seeds

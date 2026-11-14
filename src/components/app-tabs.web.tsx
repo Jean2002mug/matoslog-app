@@ -16,10 +16,12 @@ import { ExternalLink } from './external-link';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
-// "/" is a valid route (src/app/(equipment)/index.tsx). The cast works around a bug in
-// Expo's typed-route generator on Windows: it strips a trailing "/index" before converting
-// "\" to "/", so group index routes are typed as "/(equipment)/index" instead of "/".
+// "/" (src/app/(equipment)/index.tsx) and "/history" (src/app/history/index.tsx) are valid
+// routes. The casts work around a bug in Expo's typed-route generator on Windows: it strips
+// a trailing "/index" before converting "\" to "/", so folder index routes are typed as
+// "/(equipment)/index" and "/history/index" instead of "/" and "/history".
 const EQUIPMENT_HREF = '/' as Href;
+const HISTORY_HREF = '/history' as Href;
 
 export default function AppTabs() {
   return (
@@ -30,8 +32,8 @@ export default function AppTabs() {
           <TabTrigger name="home" href={EQUIPMENT_HREF} asChild>
             <TabButton>Equipment</TabButton>
           </TabTrigger>
-          <TabTrigger name="explore" href="/explore" asChild>
-            <TabButton>Explore</TabButton>
+          <TabTrigger name="history" href={HISTORY_HREF} asChild>
+            <TabButton>History</TabButton>
           </TabTrigger>
         </CustomTabList>
       </TabList>
