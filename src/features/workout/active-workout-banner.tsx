@@ -7,7 +7,10 @@ import { AppButton } from '@/components/ui/app-button';
 import { Spacing } from '@/constants/theme';
 import { useServices } from '@/features/services-provider';
 
+import { RestTimerCard } from './rest-timer-card';
+import { useRestTimer } from './rest-timer-provider';
 import { useActiveWorkout } from './use-active-workout';
+import { WorkoutClock } from './workout-clock';
 
 type Pending = 'finish' | 'discard' | null;
 
@@ -19,6 +22,7 @@ type Pending = 'finish' | 'discard' | null;
 export function ActiveWorkoutBanner() {
   const { workout } = useServices();
   const { state, refresh } = useActiveWorkout();
+  const restTimer = useRestTimer();
   const [pending, setPending] = useState<Pending>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +45,11 @@ export function ActiveWorkoutBanner() {
     const result = pending === 'finish' ? await workout.finishWorkout() : await workout.discardWorkout();
     setBusy(false);
     setPending(null);
-    if (!result.ok) setError(result.error);
+    if (result.ok) {
+      restTimer.skip(); // no resting once the workout is over
+    } else {
+      setError(result.error);
+    }
     await refresh();
   }
 
@@ -50,6 +58,10 @@ export function ActiveWorkoutBanner() {
       <ThemedText type="smallBold">
         Workout in progress · {setCount} {setCount === 1 ? 'set' : 'sets'}
       </ThemedText>
+      <WorkoutClock type="small" prefix="Time · " startedAt={state.active.workout.startedAt} />
+
+      {/* A rest started on the set logger keeps counting here while you pick the next exercise. */}
+      <RestTimerCard />
 
       {pending === null ? (
         <View style={styles.actions}>

@@ -11,7 +11,10 @@ import { describeWeightConvention, formatKg, type ExerciseWithEquipment } from '
 import { useServices } from '@/features/services-provider';
 import { useTheme } from '@/hooks/use-theme';
 
+import { RestTimerCard } from './rest-timer-card';
+import { useRestTimer } from './rest-timer-provider';
 import { useActiveWorkout } from './use-active-workout';
+import { WorkoutClock } from './workout-clock';
 
 type LoadState =
   | { status: 'loading' }
@@ -27,6 +30,7 @@ export function SetLogger({ exerciseId }: { exerciseId: string }) {
   const { catalog, workout } = useServices();
   const theme = useTheme();
   const { state: activeState, refresh } = useActiveWorkout();
+  const restTimer = useRestTimer();
 
   const [exerciseState, setExerciseState] = useState<LoadState>({ status: 'loading' });
   const [weightText, setWeightText] = useState('');
@@ -61,6 +65,7 @@ export function SetLogger({ exerciseId }: { exerciseId: string }) {
     // Close the keypad so the new set is visible. Weight and reps stay filled in,
     // because the next set is often the same.
     Keyboard.dismiss();
+    restTimer.start();
     await refresh();
   }
 
@@ -73,10 +78,8 @@ export function SetLogger({ exerciseId }: { exerciseId: string }) {
     await refresh();
   }
 
-  const sets =
-    activeState.status === 'ready' && activeState.active
-      ? activeState.active.sets.filter((s) => s.exerciseId === exerciseId)
-      : [];
+  const active = activeState.status === 'ready' ? activeState.active : null;
+  const sets = active ? active.sets.filter((s) => s.exerciseId === exerciseId) : [];
 
   const inputStyle = [styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }];
 
@@ -98,6 +101,14 @@ export function SetLogger({ exerciseId }: { exerciseId: string }) {
             <ThemedText type="small" themeColor="textSecondary">
               {describeWeightConvention(exerciseState.data.equipment)}
             </ThemedText>
+
+            {active && (
+              <WorkoutClock
+                type="smallBold"
+                prefix="Workout in progress · "
+                startedAt={active.workout.startedAt}
+              />
+            )}
 
             <View style={styles.fields}>
               <View style={styles.field}>
@@ -133,6 +144,8 @@ export function SetLogger({ exerciseId }: { exerciseId: string }) {
                 {error}
               </ThemedText>
             ) : null}
+
+            <RestTimerCard />
 
             <ThemedText type="smallBold" style={styles.sectionTitle}>
               This workout
