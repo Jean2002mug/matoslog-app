@@ -6,6 +6,7 @@ import {
   TabTriggerSlotProps,
   TabListProps,
 } from 'expo-router/ui';
+import type { Href } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { Pressable, useColorScheme, View, StyleSheet } from 'react-native';
 
@@ -15,13 +16,18 @@ import { ExternalLink } from './external-link';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
+// "/" is a valid route (src/app/(equipment)/index.tsx). The cast works around a bug in
+// Expo's typed-route generator on Windows: it strips a trailing "/index" before converting
+// "\" to "/", so group index routes are typed as "/(equipment)/index" instead of "/".
+const EQUIPMENT_HREF = '/' as Href;
+
 export default function AppTabs() {
   return (
     <Tabs>
       <TabSlot style={{ height: '100%' }} />
       <TabList asChild>
         <CustomTabList>
-          <TabTrigger name="home" href="/" asChild>
+          <TabTrigger name="home" href={EQUIPMENT_HREF} asChild>
             <TabButton>Equipment</TabButton>
           </TabTrigger>
           <TabTrigger name="explore" href="/explore" asChild>

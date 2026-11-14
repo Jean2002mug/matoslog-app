@@ -1,4 +1,4 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
+import type { Db } from './db';
 
 /**
  * Schema migrations. MIGRATIONS[0] takes the database from version 0 to 1,
@@ -28,11 +28,67 @@ const MIGRATIONS: readonly string[] = [
 
   CREATE INDEX idx_exercise_equipment_id ON exercise(equipment_id);
   `,
+
+  // v2: workouts and sets
+  `
+  CREATE TABLE workout (
+    id          TEXT PRIMARY KEY NOT NULL,
+    status      TEXT NOT NULL CHECK (status IN ('active', 'completed')),
+    started_at  TEXT NOT NULL,
+    finished_at TEXT,
+    CHECK (
+      (status = 'active'    AND finished_at IS NULL) OR
+      (status = 'completed' AND finished_at IS NOT NULL)
+    )
+  );
+
+  -- At most one active workout: a unique index that only covers rows WHERE status = 'active'.
+  CREATE UNIQUE INDEX idx_workout_one_active ON workout(status) WHERE status = 'active';
+
+  CREATE TABLE workout_set (
+    id          TEXT    PRIMARY KEY NOT NULL,
+    workout_id  TEXT    NOT NULL REFERENCES workout(id),
+    exercise_id TEXT    NOT NULL REFERENCES exercise(id),
+    weight_cg   INTEGER NOT NULL CHECK (weight_cg >= 0),
+    reps        INTEGER NOT NULL CHECK (reps > 0),
+    position    INTEGER NOT NULL,
+    created_at  TEXT    NOT NULL,
+    UNIQUE (workout_id, position)
+  );
+
+  CREATE INDEX idx_workout_set_workout_id  ON workout_set(workout_id);
+  CREATE INDEX idx_workout_set_exercise_id ON workout_set(exercise_id);
+
+  -- Completed workouts are immutable. The service checks this too; these triggers
+  -- are the last line of defence if a bug ever slips past it.
+  CREATE TRIGGER trg_workout_completed_no_update
+  BEFORE UPDATE ON workout WHEN OLD.status = 'completed'
+  BEGIN SELECT RAISE(ABORT, 'completed workouts are immutable'); END;
+
+  CREATE TRIGGER trg_workout_completed_no_delete
+  BEFORE DELETE ON workout WHEN OLD.status = 'completed'
+  BEGIN SELECT RAISE(ABORT, 'completed workouts are immutable'); END;
+
+  CREATE TRIGGER trg_workout_set_completed_no_insert
+  BEFORE INSERT ON workout_set
+  WHEN (SELECT status FROM workout WHERE id = NEW.workout_id) = 'completed'
+  BEGIN SELECT RAISE(ABORT, 'completed workouts are immutable'); END;
+
+  CREATE TRIGGER trg_workout_set_completed_no_update
+  BEFORE UPDATE ON workout_set
+  WHEN (SELECT status FROM workout WHERE id = OLD.workout_id) = 'completed'
+  BEGIN SELECT RAISE(ABORT, 'completed workouts are immutable'); END;
+
+  CREATE TRIGGER trg_workout_set_completed_no_delete
+  BEFORE DELETE ON workout_set
+  WHEN (SELECT status FROM workout WHERE id = OLD.workout_id) = 'completed'
+  BEGIN SELECT RAISE(ABORT, 'completed workouts are immutable'); END;
+  `,
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS.length;
 
-type MigrationDb = Pick<SQLiteDatabase, 'getFirstAsync' | 'execAsync' | 'withTransactionAsync'>;
+type MigrationDb = Pick<Db, 'getFirstAsync' | 'execAsync' | 'withTransactionAsync'>;
 
 /**
  * Brings the database schema up to LATEST_SCHEMA_VERSION.
