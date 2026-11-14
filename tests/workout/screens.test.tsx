@@ -8,6 +8,7 @@ import { SqliteWorkoutRepository } from '@/data/sqlite-workout-repository';
 import { EquipmentList } from '@/features/catalog/equipment-list';
 import { ExerciseList } from '@/features/catalog/exercise-list';
 import { ServicesContext, type Services } from '@/features/services-provider';
+import { RestTimerProvider } from '@/features/workout/rest-timer-provider';
 import { SetLogger } from '@/features/workout/set-logger';
 import { CatalogService } from '@/services/catalog-service';
 import { WorkoutService } from '@/services/workout-service';
@@ -47,7 +48,11 @@ beforeEach(async () => {
 afterEach(() => db.close());
 
 const renderWithServices = (ui: ReactNode) =>
-  render(<ServicesContext value={services}>{ui}</ServicesContext>);
+  render(
+    <ServicesContext value={services}>
+      <RestTimerProvider>{ui}</RestTimerProvider>
+    </ServicesContext>,
+  );
 
 const setCount = () =>
   (db.raw.prepare('SELECT COUNT(*) AS n FROM workout_set').get() as { n: number }).n;

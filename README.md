@@ -15,6 +15,8 @@ weight and reps. Everything is stored on the device in SQLite: no account, no ne
   *total*, including the 20 kg bar, and can't be lower than the bar.
 - **Workout logging:** logging the first set starts a workout. Delete a wrong set, then finish
   or discard the workout, with confirmation.
+- **Timers:** a live workout clock, and a rest countdown (1:30 by default, ±15 s, Skip) that
+  starts after each set and vibrates once when the rest is over.
 - **History:** finished workouts, newest first, with exercises, sets and duration. Each workout
   shows its sets grouped by exercise. Finished workouts are read-only.
 
@@ -85,6 +87,9 @@ tests/          Jest tests, mirroring the features
   changes even from raw SQL.
 - **Every write is one transaction** and re-checks the active workout inside it.
   `WorkoutService` also queues operations so two writes can never interleave.
+- **Timers count from timestamps, not ticks.** Phones pause JavaScript timers in the background,
+  so the workout clock uses the saved start time and the rest timer uses its end time. Both are
+  still correct when you return.
 - **Catalog-driven UI:** weight rules come from the equipment's data. A new equipment row that
   uses an existing rule (say, an EZ bar with a 10.25 kg bar) works with no code changes.
 
@@ -104,14 +109,16 @@ npm test
 
 ## Scope
 
-**In v1:** the catalog, workout logging and history described above. kg only.
+**In v1:** the catalog, workout logging, timers and history described above. kg only.
 
-**Out of v1:** accounts, cloud sync, charts, rest timer, lb units, custom exercises.
+**Out of v1:** accounts, cloud sync, charts, lb units, custom exercises.
 
 ### Known limitations
 
 - **Web isn't supported yet.** expo-sqlite needs extra Metro configuration (WASM) and
   cross-origin headers to run in a browser.
+- **The rest timer only alerts while the app is open.** If the app is in the background when rest
+  ends, there's no notification; the timer shows the right time when you come back.
 - **Tab icons** are placeholders from the Expo starter.
 
 ## License

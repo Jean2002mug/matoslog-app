@@ -49,11 +49,13 @@ Screen -> Service -> Repository interface -> SQLite adapter.
   convention must work with zero screen changes (AT-11)
 
 ## Scope guard
-Out of v1: auth, Supabase, sync, charts, rest timer, lb units, sensors, custom exercises.
+Out of v1: auth, Supabase, sync, charts, lb units, sensors, custom exercises.
 If a task seems to need one of these, stop and ask.
+In v1 by owner decision (2026-11-14): workout clock and rest timer (foreground only;
+no background notifications).
 
 ## Workflow
-- `main` stays stable. Branches: `feat/catalog`, `feat/workout`, `feat/history`
+- `main` stays stable. Branches: `feat/catalog`, `feat/workout`, `feat/history`, `feat/timers`
 - Small commits, one slice per PR
 - Write or update tests in the same change as the code
 - Reference requirement IDs (FR-xx, BR-xx, AT-xx) in commit messages and test names

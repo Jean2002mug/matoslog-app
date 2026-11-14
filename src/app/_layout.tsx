@@ -7,6 +7,7 @@ import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
 import { DATABASE_NAME, initializeDatabase } from '@/data/database';
 import { ServicesProvider } from '@/features/services-provider';
+import { RestTimerProvider } from '@/features/workout/rest-timer-provider';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -17,8 +18,10 @@ export default function TabLayout() {
       {/* Opens the database and runs migrations + seed before any screen renders. */}
       <SQLiteProvider databaseName={DATABASE_NAME} onInit={initializeDatabase}>
         <ServicesProvider>
-          <AnimatedSplashOverlay />
-          <AppTabs />
+          <RestTimerProvider>
+            <AnimatedSplashOverlay />
+            <AppTabs />
+          </RestTimerProvider>
         </ServicesProvider>
       </SQLiteProvider>
     </ThemeProvider>
