@@ -124,6 +124,8 @@ describe('running operations one at a time', () => {
       discardActiveWorkout: async () => {
         calls.push('discard');
       },
+      listCompletedWorkouts: async () => [],
+      getCompletedWorkout: async () => null,
     };
     const queued = new WorkoutService(flaky, new SqliteCatalogRepository(db));
 
@@ -144,6 +146,8 @@ describe('running operations one at a time', () => {
       deleteSet: () => Promise.reject(new Error('disk I/O error')),
       finishActiveWorkout: () => Promise.reject(new Error('disk I/O error')),
       discardActiveWorkout: () => Promise.reject(new Error('disk I/O error')),
+      listCompletedWorkouts: () => Promise.reject(new Error('disk I/O error')),
+      getCompletedWorkout: () => Promise.reject(new Error('disk I/O error')),
     };
     const failing = new WorkoutService(broken, new SqliteCatalogRepository(db));
 

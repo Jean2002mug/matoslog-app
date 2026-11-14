@@ -1,6 +1,7 @@
 import type { CatalogRepository } from '@/data/catalog-repository';
 import type { WorkoutRepository } from '@/data/workout-repository';
 import type { ExerciseWithEquipment } from '@/domain/catalog';
+import type { CompletedWorkoutDetail, CompletedWorkoutSummary } from '@/domain/history';
 import { err, ok, type Result } from '@/domain/result';
 import { parseKg, parseReps, validateSet } from '@/domain/weight';
 import { WorkoutError, type ActiveWorkout, type WorkoutErrorCode, type WorkoutSet } from '@/domain/workout';
@@ -92,5 +93,17 @@ export class WorkoutService {
 
   discardWorkout(): Promise<Result<void>> {
     return this.attempt('discardWorkout', () => this.workouts.discardActiveWorkout());
+  }
+
+  listCompletedWorkouts(): Promise<Result<CompletedWorkoutSummary[]>> {
+    return this.attempt('listCompletedWorkouts', () => this.workouts.listCompletedWorkouts());
+  }
+
+  async getCompletedWorkout(workoutId: string): Promise<Result<CompletedWorkoutDetail>> {
+    const result = await this.attempt('getCompletedWorkout', () =>
+      this.workouts.getCompletedWorkout(workoutId),
+    );
+    if (!result.ok) return result;
+    return result.value ? ok(result.value) : err('Workout not found.');
   }
 }
