@@ -22,7 +22,14 @@ describe('migrate', () => {
     db = createTestDb();
     await migrate(db);
 
-    expect(tableNames(db)).toEqual(['equipment', 'exercise', 'workout', 'workout_set']);
+    expect(tableNames(db)).toEqual([
+      'app_setting',
+      'equipment',
+      'exercise',
+      'exercise_rest_setting',
+      'workout',
+      'workout_set',
+    ]);
     expect(userVersion(db)).toBe(LATEST_SCHEMA_VERSION);
   });
 
@@ -34,11 +41,9 @@ describe('migrate', () => {
   });
 
   it('upgrades a v1 (catalog-only) database without losing data', async () => {
-    // Simulate an older install: migrate fully, then remove v2's tables and roll the
-    // version back to 1, so the database looks exactly like one made by the catalog-only app.
+    // Build the database exactly as the catalog-only app left it, then upgrade.
     db = createTestDb();
-    await migrate(db);
-    db.raw.exec('DROP TABLE workout_set; DROP TABLE workout; PRAGMA user_version = 1');
+    await migrate(db, 1);
     db.raw.exec(`INSERT INTO equipment VALUES ('e1', 'Kettlebell', 'per_dumbbell', NULL, 9)`);
 
     await migrate(db);
@@ -46,6 +51,32 @@ describe('migrate', () => {
     expect(tableNames(db)).toContain('workout');
     expect(db.raw.prepare(`SELECT name FROM equipment WHERE id = 'e1'`).get()).toEqual({
       name: 'Kettlebell',
+    });
+  });
+
+  it('upgrades a v2 database mid-workout: the workout and sets survive, timers start empty', async () => {
+    db = createTestDb();
+    db.raw.exec('PRAGMA foreign_keys = ON');
+    await migrate(db, 2);
+    db.raw.exec(`
+      INSERT INTO equipment VALUES ('eq', 'Barbell', 'barbell_total', 2000, 1);
+      INSERT INTO exercise VALUES ('a3e9d7b5-2c41-4f6e-8d0a-7b9c1e3f5a03', 'eq', 'Back Squat', 1);
+      INSERT INTO workout VALUES ('w1', 'active', '2026-11-16T10:00:00.000Z', NULL);
+      INSERT INTO workout_set VALUES ('s1', 'w1', 'a3e9d7b5-2c41-4f6e-8d0a-7b9c1e3f5a03', 10000, 5, 1, 'now');
+    `);
+
+    await migrate(db);
+
+    expect(db.raw.prepare('SELECT status, paused_at, paused_ms, rest_ends_at FROM workout').get()).toEqual({
+      status: 'active',
+      paused_at: null,
+      paused_ms: 0,
+      rest_ends_at: null,
+    });
+    expect(db.raw.prepare('SELECT COUNT(*) AS n FROM workout_set').get()).toEqual({ n: 1 });
+    // The existing Back Squat row got its recommended rest from the migration.
+    expect(db.raw.prepare('SELECT recommended_rest_ms FROM exercise').get()).toEqual({
+      recommended_rest_ms: 150000,
     });
   });
 

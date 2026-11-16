@@ -1,28 +1,20 @@
-import {
-  Tabs,
-  TabList,
-  TabTrigger,
-  TabSlot,
-  TabTriggerSlotProps,
-  TabListProps,
-} from 'expo-router/ui';
 import type { Href } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
-import { Pressable, useColorScheme, View, StyleSheet } from 'react-native';
+import { Tabs, TabList, TabTrigger, TabSlot, TabTriggerSlotProps, TabListProps } from 'expo-router/ui';
+import { Pressable, View, StyleSheet } from 'react-native';
 
-import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
 
-import { ExternalLink } from './external-link';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
-// "/" (src/app/(equipment)/index.tsx) and "/history" (src/app/history/index.tsx) are valid
-// routes. The casts work around a bug in Expo's typed-route generator on Windows: it strips
-// a trailing "/index" before converting "\" to "/", so folder index routes are typed as
-// "/(equipment)/index" and "/history/index" instead of "/" and "/history".
+// "/" (src/app/(equipment)/index.tsx), "/history" and "/settings" are valid routes. The casts
+// work around a bug in Expo's typed-route generator on Windows: it strips a trailing "/index"
+// before converting "\" to "/", so folder index routes are typed as e.g. "/history/index".
 const EQUIPMENT_HREF = '/' as Href;
 const HISTORY_HREF = '/history' as Href;
+const SETTINGS_HREF = '/settings' as Href;
 
+/** The web version of the tab bar: a simple bar at the top with the app name and three tabs. */
 export default function AppTabs() {
   return (
     <Tabs>
@@ -34,6 +26,9 @@ export default function AppTabs() {
           </TabTrigger>
           <TabTrigger name="history" href={HISTORY_HREF} asChild>
             <TabButton>History</TabButton>
+          </TabTrigger>
+          <TabTrigger name="settings" href={SETTINGS_HREF} asChild>
+            <TabButton>Settings</TabButton>
           </TabTrigger>
         </CustomTabList>
       </TabList>
@@ -58,28 +53,13 @@ export function TabButton({ children, isFocused, ref, ...props }: TabTriggerSlot
 }
 
 export function CustomTabList(props: TabListProps) {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
-
   return (
     <View {...props} style={styles.tabListContainer}>
       <ThemedView type="backgroundElement" style={styles.innerContainer}>
         <ThemedText type="smallBold" style={styles.brandText}>
-          Expo Starter
+          MatosLog
         </ThemedText>
-
         {props.children}
-
-        <ExternalLink href="https://docs.expo.dev" asChild>
-          <Pressable style={styles.externalPressable}>
-            <ThemedText type="link">Docs</ThemedText>
-            <SymbolView
-              tintColor={colors.text}
-              name={{ ios: 'arrow.up.right.square', web: 'link' }}
-              size={12}
-            />
-          </Pressable>
-        </ExternalLink>
       </ThemedView>
     </View>
   );
@@ -114,12 +94,5 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.three,
-  },
-  externalPressable: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: Spacing.one,
-    marginLeft: Spacing.three,
   },
 });

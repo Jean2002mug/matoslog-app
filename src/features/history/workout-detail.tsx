@@ -7,7 +7,7 @@ import { ThemedView } from '@/components/themed-view';
 import { ScreenScrollView } from '@/components/ui/screen-scroll-view';
 import { Spacing } from '@/constants/theme';
 import { describeWeightConvention, formatKg } from '@/domain/catalog';
-import { formatDuration, plural, type CompletedWorkoutDetail } from '@/domain/history';
+import { formatDuration, formatPaused, plural, type CompletedWorkoutDetail } from '@/domain/history';
 import { useServices } from '@/features/services-provider';
 
 import { formatWorkoutDate, formatWorkoutTime } from './format-date';
@@ -66,6 +66,7 @@ function DetailBody({ detail }: { detail: CompletedWorkoutDetail }) {
         {[
           `Started ${formatWorkoutTime(w.startedAt)}`,
           w.finishedAt ? formatDuration(w.startedAt, w.finishedAt) : null,
+          formatPaused(w.pausedMs),
           plural(setCount, 'set'),
         ]
           .filter(Boolean)

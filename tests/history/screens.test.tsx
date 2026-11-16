@@ -1,17 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { render, screen } from '@testing-library/react-native';
+import { screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
 import { SEED_EXERCISES } from '@/data/seed-data';
-import { SqliteCatalogRepository } from '@/data/sqlite-catalog-repository';
-import { SqliteWorkoutRepository } from '@/data/sqlite-workout-repository';
 import { HistoryList } from '@/features/history/history-list';
 import { WorkoutDetail } from '@/features/history/workout-detail';
-import { ServicesContext, type Services } from '@/features/services-provider';
-import { CatalogService } from '@/services/catalog-service';
-import { WorkoutService } from '@/services/workout-service';
+import { createServices, type Services } from '@/services/create-services';
 
 import { createInitializedTestDb, type TestDb } from '../helpers/node-sqlite-db';
+import { renderApp } from '../helpers/render-app';
 
 jest.mock('expo-sqlite', () => ({ useSQLiteContext: () => null }));
 jest.mock('expo-crypto', () => ({ randomUUID: () => 'unused' }));
@@ -35,19 +32,11 @@ beforeEach(async () => {
   db = await createInitializedTestDb();
   let id = 0;
   clock = new Date('2026-11-12T18:00:00.000Z');
-  const catalogRepository = new SqliteCatalogRepository(db);
-  services = {
-    catalog: new CatalogService(catalogRepository),
-    workout: new WorkoutService(
-      new SqliteWorkoutRepository(db, { newId: () => `id-${++id}`, now: () => clock }),
-      catalogRepository,
-    ),
-  };
+  services = createServices(db, { newId: () => `id-${++id}`, now: () => clock });
 });
 afterEach(() => db.close());
 
-const renderWithServices = (ui: ReactNode) =>
-  render(<ServicesContext value={services}>{ui}</ServicesContext>);
+const renderWithServices = (ui: ReactNode) => renderApp(ui, services);
 
 async function finishAWorkout() {
   await services.workout.addSet({ exerciseId: squat.id, weightText: '100', repsText: '5' });

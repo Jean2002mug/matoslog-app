@@ -68,7 +68,7 @@ describe('CatalogService (real SQLite)', () => {
     const service = await serviceWithRealDb();
     db!.raw.exec(
       `INSERT INTO equipment VALUES ('ez', 'EZ Bar', 'barbell_total', 1025, 3);
-       INSERT INTO exercise VALUES ('curl', 'ez', 'EZ Bar Curl', 1);`,
+       INSERT INTO exercise (id, equipment_id, name, sort_order) VALUES ('curl', 'ez', 'EZ Bar Curl', 1);`,
     );
 
     const list = await service.listEquipment();

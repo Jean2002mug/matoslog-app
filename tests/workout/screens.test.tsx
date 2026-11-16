@@ -1,19 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { render, screen, userEvent, waitFor } from '@testing-library/react-native';
+import { screen, userEvent, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
 import { SEED_EXERCISES, EQUIPMENT_IDS } from '@/data/seed-data';
-import { SqliteCatalogRepository } from '@/data/sqlite-catalog-repository';
-import { SqliteWorkoutRepository } from '@/data/sqlite-workout-repository';
 import { EquipmentList } from '@/features/catalog/equipment-list';
 import { ExerciseList } from '@/features/catalog/exercise-list';
-import { ServicesContext, type Services } from '@/features/services-provider';
-import { RestTimerProvider } from '@/features/workout/rest-timer-provider';
 import { SetLogger } from '@/features/workout/set-logger';
-import { CatalogService } from '@/services/catalog-service';
-import { WorkoutService } from '@/services/workout-service';
+import { createServices, type Services } from '@/services/create-services';
 
 import { createInitializedTestDb, type TestDb } from '../helpers/node-sqlite-db';
+import { renderApp } from '../helpers/render-app';
 
 // Native modules and navigation aren't available in Jest; replace them with simple stand-ins.
 jest.mock('expo-sqlite', () => ({ useSQLiteContext: () => null }));
@@ -36,23 +32,11 @@ let services: Services;
 beforeEach(async () => {
   db = await createInitializedTestDb();
   let id = 0;
-  const catalogRepository = new SqliteCatalogRepository(db);
-  services = {
-    catalog: new CatalogService(catalogRepository),
-    workout: new WorkoutService(
-      new SqliteWorkoutRepository(db, { newId: () => `id-${++id}`, now: () => new Date() }),
-      catalogRepository,
-    ),
-  };
+  services = createServices(db, { newId: () => `id-${++id}`, now: () => new Date() });
 });
 afterEach(() => db.close());
 
-const renderWithServices = (ui: ReactNode) =>
-  render(
-    <ServicesContext value={services}>
-      <RestTimerProvider>{ui}</RestTimerProvider>
-    </ServicesContext>,
-  );
+const renderWithServices = (ui: ReactNode) => renderApp(ui, services);
 
 const setCount = () =>
   (db.raw.prepare('SELECT COUNT(*) AS n FROM workout_set').get() as { n: number }).n;
@@ -135,9 +119,10 @@ describe('Active workout banner', () => {
     await services.workout.addSet({ exerciseId: squat.id, weightText: '100', repsText: '5' });
     await renderWithServices(<EquipmentList />);
 
-    expect(await screen.findByText('Workout in progress · 1 set')).toBeTruthy();
+    expect(await screen.findByText('Workout in progress')).toBeTruthy();
+    expect(screen.getByText('1 set')).toBeTruthy();
     await user.press(screen.getByText('Finish'));
-    await user.press(screen.getByText('Yes, finish'));
+    await user.press(await screen.findByText('Finish workout'));
 
     await waitFor(() => expect(screen.queryByText(/Workout in progress/)).toBeNull());
     expect(db.raw.prepare('SELECT status FROM workout').get()).toEqual({ status: 'completed' });

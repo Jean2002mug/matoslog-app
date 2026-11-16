@@ -2,39 +2,23 @@ import { randomUUID } from 'expo-crypto';
 import { useSQLiteContext } from 'expo-sqlite';
 import { createContext, use, useMemo, type ReactNode } from 'react';
 
-import { SqliteCatalogRepository } from '@/data/sqlite-catalog-repository';
-import { SqliteWorkoutRepository } from '@/data/sqlite-workout-repository';
-import { CatalogService } from '@/services/catalog-service';
-import { WorkoutService } from '@/services/workout-service';
+import { createServices, type Services } from '@/services/create-services';
 
-export interface Services {
-  catalog: CatalogService;
-  workout: WorkoutService;
-}
+export type { Services };
 
 /** Exported so screen tests can supply services backed by a test database. */
 export const ServicesContext = createContext<Services | null>(null);
 
 /**
  * Creates the services ONCE for the whole app and shares them with every screen.
- * This matters for WorkoutService: its "one operation at a time" queue only works
- * if every screen uses the same instance.
+ * This matters for the shared queue: it only works if every screen uses the same instance.
  */
 export function ServicesProvider({ children }: { children: ReactNode }) {
   const db = useSQLiteContext();
-
-  const services = useMemo<Services>(() => {
-    const catalogRepository = new SqliteCatalogRepository(db);
-    const workoutRepository = new SqliteWorkoutRepository(db, {
-      newId: randomUUID,
-      now: () => new Date(),
-    });
-    return {
-      catalog: new CatalogService(catalogRepository),
-      workout: new WorkoutService(workoutRepository, catalogRepository),
-    };
-  }, [db]);
-
+  const services = useMemo(
+    () => createServices(db, { newId: randomUUID, now: () => new Date() }),
+    [db],
+  );
   return <ServicesContext value={services}>{children}</ServicesContext>;
 }
 
