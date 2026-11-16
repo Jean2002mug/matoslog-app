@@ -20,9 +20,9 @@ export async function seedCatalog(db: SeedDb): Promise<void> {
 
     for (const x of SEED_EXERCISES) {
       await db.runAsync(
-        `INSERT OR IGNORE INTO exercise (id, equipment_id, name, sort_order)
-         VALUES (?, ?, ?, ?)`,
-        [x.id, x.equipmentId, x.name, x.sortOrder],
+        `INSERT OR IGNORE INTO exercise (id, equipment_id, name, sort_order, recommended_rest_ms)
+         VALUES (?, ?, ?, ?, ?)`,
+        [x.id, x.equipmentId, x.name, x.sortOrder, x.recommendedRestMs],
       );
     }
   });

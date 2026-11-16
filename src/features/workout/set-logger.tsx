@@ -11,10 +11,10 @@ import { describeWeightConvention, formatKg, type ExerciseWithEquipment } from '
 import { useServices } from '@/features/services-provider';
 import { useTheme } from '@/hooks/use-theme';
 
+import { useActiveWorkout } from './active-workout-provider';
+import { RestSettingRow } from './rest-setting';
 import { RestTimerCard } from './rest-timer-card';
-import { useRestTimer } from './rest-timer-provider';
-import { useActiveWorkout } from './use-active-workout';
-import { WorkoutClock } from './workout-clock';
+import { WorkoutTimerCard } from './workout-timer-card';
 
 type LoadState =
   | { status: 'loading' }
@@ -23,14 +23,13 @@ type LoadState =
 
 /**
  * Log sets for one exercise: type weight and reps, tap "Add set".
- * The first set starts a workout automatically. Sets logged for this exercise in the
- * active workout are listed below, each with a Delete button.
+ * The first set starts a workout; every set starts the rest timer. The form is pre-filled
+ * with the last weight and reps logged for this exercise.
  */
 export function SetLogger({ exerciseId }: { exerciseId: string }) {
   const { catalog, workout } = useServices();
   const theme = useTheme();
-  const { state: activeState, refresh } = useActiveWorkout();
-  const restTimer = useRestTimer();
+  const { state: activeState, run } = useActiveWorkout();
 
   const [exerciseState, setExerciseState] = useState<LoadState>({ status: 'loading' });
   const [weightText, setWeightText] = useState('');
@@ -48,34 +47,38 @@ export function SetLogger({ exerciseId }: { exerciseId: string }) {
           : { status: 'error', message: result.error },
       );
     });
+    // Pre-fill with what was logged last time for this exercise (only if still empty).
+    workout.getLastSet(exerciseId).then((result) => {
+      if (cancelled || !result.ok || !result.value) return;
+      const last = result.value;
+      setWeightText((text) => text || formatKg(last.weightCg));
+      setRepsText((text) => text || String(last.reps));
+    });
     return () => {
       cancelled = true;
     };
-  }, [catalog, exerciseId]);
+  }, [catalog, workout, exerciseId]);
 
   async function handleAddSet() {
     setBusy(true);
     setError(null);
-    const result = await workout.addSet({ exerciseId, weightText, repsText });
+    const result = await run(() => workout.addSet({ exerciseId, weightText, repsText }));
     setBusy(false);
     if (!result.ok) {
       setError(result.error);
       return;
     }
-    // Close the keypad so the new set is visible. Weight and reps stay filled in,
-    // because the next set is often the same.
+    // Close the keypad so the rest timer and the new set are visible. Weight and reps stay
+    // filled in, because the next set is often the same.
     Keyboard.dismiss();
-    restTimer.start();
-    await refresh();
   }
 
   async function handleDeleteSet(setId: string) {
     setBusy(true);
     setError(null);
-    const result = await workout.deleteSet(setId);
+    const result = await run(() => workout.deleteSet(setId));
     setBusy(false);
     if (!result.ok) setError(result.error);
-    await refresh();
   }
 
   const active = activeState.status === 'ready' ? activeState.active : null;
@@ -98,17 +101,11 @@ export function SetLogger({ exerciseId }: { exerciseId: string }) {
 
         {exerciseState.status === 'ready' && (
           <>
+            <WorkoutTimerCard compact onError={setError} />
+
             <ThemedText type="small" themeColor="textSecondary">
               {describeWeightConvention(exerciseState.data.equipment)}
             </ThemedText>
-
-            {active && (
-              <WorkoutClock
-                type="smallBold"
-                prefix="Workout in progress · "
-                startedAt={active.workout.startedAt}
-              />
-            )}
 
             <View style={styles.fields}>
               <View style={styles.field}>
@@ -121,6 +118,7 @@ export function SetLogger({ exerciseId }: { exerciseId: string }) {
                   keyboardType="decimal-pad"
                   placeholder="e.g. 22.5"
                   placeholderTextColor={theme.textSecondary}
+                  selectTextOnFocus
                 />
               </View>
               <View style={styles.field}>
@@ -133,6 +131,7 @@ export function SetLogger({ exerciseId }: { exerciseId: string }) {
                   keyboardType="number-pad"
                   placeholder="e.g. 8"
                   placeholderTextColor={theme.textSecondary}
+                  selectTextOnFocus
                 />
               </View>
             </View>
@@ -145,7 +144,8 @@ export function SetLogger({ exerciseId }: { exerciseId: string }) {
               </ThemedText>
             ) : null}
 
-            <RestTimerCard />
+            <RestTimerCard onError={setError} />
+            <RestSettingRow exerciseId={exerciseId} />
 
             <ThemedText type="smallBold" style={styles.sectionTitle}>
               This workout

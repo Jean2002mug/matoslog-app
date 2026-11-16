@@ -5,7 +5,7 @@ import { ActivityIndicator } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ListRow } from '@/components/ui/list-row';
 import { ScreenScrollView } from '@/components/ui/screen-scroll-view';
-import { formatDuration, plural, type CompletedWorkoutSummary } from '@/domain/history';
+import { formatDuration, formatPaused, plural, type CompletedWorkoutSummary } from '@/domain/history';
 import { useServices } from '@/features/services-provider';
 
 import { formatWorkoutDate, formatWorkoutTime } from './format-date';
@@ -62,6 +62,7 @@ export function HistoryList() {
                 plural(exerciseCount, 'exercise'),
                 plural(setCount, 'set'),
                 w.finishedAt ? formatDuration(w.startedAt, w.finishedAt) : null,
+                formatPaused(w.pausedMs),
               ]
                 .filter(Boolean)
                 .join(' · ')}

@@ -1,10 +1,15 @@
 /**
  * Workout types. Pure TypeScript — no React, no SQL.
  */
+import type { WorkoutTimers } from './timer';
 
 export type WorkoutStatus = 'active' | 'completed';
 
-export interface Workout {
+/**
+ * A workout, including its timer state (pause and rest), which is saved with it so the timers
+ * survive an app restart and disappear with the workout if it's cancelled.
+ */
+export interface Workout extends WorkoutTimers {
   id: string;
   status: WorkoutStatus;
   /** UTC ISO-8601, e.g. "2026-11-12T18:30:00.000Z" */
@@ -37,10 +42,12 @@ export interface NewSet {
   exerciseId: string;
   weightCg: number;
   reps: number;
+  /** The rest countdown to start once the set is saved. */
+  restMs: number;
 }
 
 /** Expected, named failures. Anything else is an unexpected storage error. */
-export type WorkoutErrorCode = 'no_active_workout' | 'empty_workout' | 'set_not_found';
+export type WorkoutErrorCode = 'no_active_workout' | 'empty_workout' | 'set_not_found' | 'no_rest';
 
 export class WorkoutError extends Error {
   constructor(public readonly code: WorkoutErrorCode) {

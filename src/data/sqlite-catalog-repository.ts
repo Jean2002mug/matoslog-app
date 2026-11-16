@@ -22,10 +22,11 @@ export interface ExerciseRow {
   equipment_id: string;
   name: string;
   sort_order: number;
+  recommended_rest_ms: number;
 }
 
 const EQUIPMENT_COLUMNS = 'id, name, weight_convention, bar_weight_cg, sort_order';
-const EXERCISE_COLUMNS = 'id, equipment_id, name, sort_order';
+const EXERCISE_COLUMNS = 'id, equipment_id, name, sort_order, recommended_rest_ms';
 
 /** Shared with the workout repository, which joins equipment into history queries. */
 export function toEquipment(row: EquipmentRow): Equipment {
@@ -47,6 +48,7 @@ export function toExercise(row: ExerciseRow): Exercise {
     equipmentId: row.equipment_id,
     name: row.name,
     sortOrder: row.sort_order,
+    recommendedRestMs: row.recommended_rest_ms,
   };
 }
 

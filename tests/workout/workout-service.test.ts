@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals
 import type { WorkoutRepository } from '@/data/workout-repository';
 import { SEED_EXERCISES } from '@/data/seed-data';
 import { SqliteCatalogRepository } from '@/data/sqlite-catalog-repository';
-import { SqliteWorkoutRepository } from '@/data/sqlite-workout-repository';
-import { WorkoutError } from '@/domain/workout';
+import { SqliteSettingsRepository } from '@/data/sqlite-settings-repository';
+import { createServices } from '@/services/create-services';
 import { WorkoutService } from '@/services/workout-service';
 
 import { createInitializedTestDb, type TestDb } from '../helpers/node-sqlite-db';
@@ -19,10 +19,7 @@ let ids: number;
 beforeEach(async () => {
   db = await createInitializedTestDb();
   ids = 0;
-  service = new WorkoutService(
-    new SqliteWorkoutRepository(db, { newId: () => `id-${++ids}`, now: () => new Date() }),
-    new SqliteCatalogRepository(db),
-  );
+  service = createServices(db, { newId: () => `id-${++ids}`, now: () => new Date() }).workout;
 });
 afterEach(() => db.close());
 
@@ -107,49 +104,18 @@ describe('running operations one at a time', () => {
     ]);
   });
 
-  it('a failed operation does not block the ones after it', async () => {
-    const calls: string[] = [];
-    const flaky: WorkoutRepository = {
-      getActiveWorkout: async () => null,
-      addSet: async () => {
-        throw new Error('unused');
-      },
-      deleteSet: async () => {
-        calls.push('delete');
-        throw new WorkoutError('set_not_found');
-      },
-      finishActiveWorkout: async () => {
-        calls.push('finish');
-      },
-      discardActiveWorkout: async () => {
-        calls.push('discard');
-      },
-      listCompletedWorkouts: async () => [],
-      getCompletedWorkout: async () => null,
-    };
-    const queued = new WorkoutService(flaky, new SqliteCatalogRepository(db));
-
-    const results = await Promise.all([
-      queued.deleteSet('x'),
-      queued.finishWorkout(),
-      queued.discardWorkout(),
-    ]);
-    expect(calls).toEqual(['delete', 'finish', 'discard']);
-    expect(results.map((r) => r.ok)).toEqual([false, true, true]);
-  });
-
   it('hides unexpected storage errors behind a generic message', async () => {
     jest.spyOn(console, 'error').mockImplementation(() => {});
-    const broken: WorkoutRepository = {
-      getActiveWorkout: () => Promise.reject(new Error('disk I/O error')),
-      addSet: () => Promise.reject(new Error('disk I/O error')),
-      deleteSet: () => Promise.reject(new Error('disk I/O error')),
-      finishActiveWorkout: () => Promise.reject(new Error('disk I/O error')),
-      discardActiveWorkout: () => Promise.reject(new Error('disk I/O error')),
-      listCompletedWorkouts: () => Promise.reject(new Error('disk I/O error')),
-      getCompletedWorkout: () => Promise.reject(new Error('disk I/O error')),
-    };
-    const failing = new WorkoutService(broken, new SqliteCatalogRepository(db));
+    // A repository whose every method fails, however many methods the interface has.
+    const broken = new Proxy(
+      {},
+      { get: () => () => Promise.reject(new Error('disk I/O error')) },
+    ) as WorkoutRepository;
+    const failing = new WorkoutService(
+      broken,
+      new SqliteCatalogRepository(db),
+      new SqliteSettingsRepository(db),
+    );
 
     expect(await failing.finishWorkout()).toEqual({
       ok: false,

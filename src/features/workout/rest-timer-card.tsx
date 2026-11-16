@@ -3,56 +3,119 @@ import { StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AppButton } from '@/components/ui/app-button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Spacing } from '@/constants/theme';
-import { formatClock, REST_STEP_MS, restRemaining } from '@/domain/timer';
+import type { Result } from '@/domain/result';
+import { formatClock, isRestPaused, REST_STEP_MS, restRemaining } from '@/domain/timer';
+import { useServices } from '@/features/services-provider';
+import { useConfirm } from '@/features/use-confirm';
 
+import { useActiveWorkout } from './active-workout-provider';
 import { useNow } from './use-now';
-import { useRestTimer } from './rest-timer-provider';
 
 /**
- * The rest countdown shown after logging a set: big clock, −15 s / +15 s, and Skip.
- * When it reaches zero it says so and offers Dismiss. Renders nothing when no rest is running.
+ * The rest countdown after a set: Pause/Resume, Reset, −15 s / +15 s, and Cancel.
+ * Cancelling only stops the rest (the workout carries on), after asking — with "Don't ask again".
+ * At zero it shows "Next set!" with Dismiss. Renders nothing when no rest is running.
  */
-export function RestTimerCard() {
-  const timer = useRestTimer();
-  const now = useNow(timer.endsAt !== null);
+export function RestTimerCard({ onError }: { onError?(message: string): void }) {
+  const { workout } = useServices();
+  const { state, loadedAt, run } = useActiveWorkout();
+  const active = state.status === 'ready' ? state.active : null;
+  const rest = active?.workout.rest ?? null;
+  const workoutPaused = active?.workout.pausedAt != null;
+  const now = useNow(rest !== null && !isRestPaused(rest));
 
-  if (timer.endsAt === null) return null;
+  const cancelConfirm = useConfirm(
+    {
+      title: 'Cancel this rest?',
+      message: 'The rest timer will stop. Your workout carries on.',
+      confirmLabel: 'Cancel rest',
+    },
+    'confirmCancelRest',
+  );
 
-  // max(): never count from a moment before the timer was last started or adjusted.
-  const remaining = restRemaining(timer.endsAt, Math.max(now, timer.updatedAt ?? now));
+  if (!rest) return null;
+
+  const remaining = restRemaining(rest, Math.max(now, loadedAt));
   const over = remaining === 0;
+  const paused = isRestPaused(rest);
+  const act = async (action: () => Promise<Result<unknown>>) => {
+    const result = await run(action);
+    if (!result.ok) onError?.(result.error);
+  };
+
+  const label = over ? 'Rest over' : paused ? 'Rest paused' : 'Rest';
 
   return (
     <ThemedView type="backgroundSelected" style={styles.card}>
-      <ThemedText type="smallBold">{over ? 'Rest over' : 'Rest'}</ThemedText>
+      <ThemedText type="smallBold">{label}</ThemedText>
       <ThemedText
         type="subtitle"
         style={styles.clock}
         accessibilityLabel={over ? 'Rest over' : `Rest time left ${formatClock(remaining)}`}>
         {over ? 'Next set!' : formatClock(remaining)}
       </ThemedText>
-      <View style={styles.actions}>
-        {!over && (
-          <>
+
+      {over ? (
+        <AppButton label="Dismiss" compact onPress={() => act(() => workout.cancelRest())} />
+      ) : workoutPaused ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          Paused with the workout. Resume the workout to continue.
+        </ThemedText>
+      ) : (
+        <>
+          <View style={styles.actions}>
+            {paused ? (
+              <AppButton
+                label="Resume"
+                compact
+                accessibilityLabel="Resume rest"
+                onPress={() => act(() => workout.resumeRest())}
+              />
+            ) : (
+              <AppButton
+                label="Pause"
+                variant="secondary"
+                compact
+                accessibilityLabel="Pause rest"
+                onPress={() => act(() => workout.pauseRest())}
+              />
+            )}
+            <AppButton
+              label="Reset"
+              variant="secondary"
+              compact
+              accessibilityLabel="Reset rest"
+              onPress={() => act(() => workout.resetRest())}
+            />
+            <AppButton
+              label="Cancel"
+              variant="secondary"
+              compact
+              accessibilityLabel="Cancel rest"
+              onPress={() => cancelConfirm.request(() => act(() => workout.cancelRest()))}
+            />
+          </View>
+          <View style={styles.actions}>
             <AppButton
               label="−15 s"
               variant="secondary"
               compact
               accessibilityLabel="Remove 15 seconds"
-              onPress={() => timer.adjust(-REST_STEP_MS)}
+              onPress={() => act(() => workout.adjustRest(-REST_STEP_MS))}
             />
             <AppButton
               label="+15 s"
               variant="secondary"
               compact
               accessibilityLabel="Add 15 seconds"
-              onPress={() => timer.adjust(REST_STEP_MS)}
+              onPress={() => act(() => workout.adjustRest(REST_STEP_MS))}
             />
-          </>
-        )}
-        <AppButton label={over ? 'Dismiss' : 'Skip'} compact onPress={timer.skip} />
-      </View>
+          </View>
+        </>
+      )}
+      <ConfirmDialog {...cancelConfirm.dialogProps} />
     </ThemedView>
   );
 }

@@ -30,6 +30,8 @@ export interface Exercise {
   equipmentId: string;
   name: string;
   sortOrder: number;
+  /** Suggested rest between sets, in ms. The user can override it per exercise. */
+  recommendedRestMs: number;
 }
 
 export interface EquipmentWithExercises {

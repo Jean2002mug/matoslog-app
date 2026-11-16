@@ -34,23 +34,27 @@ export const SEED_EXERCISES: readonly Exercise[] = [
     equipmentId: EQUIPMENT_IDS.dumbbells,
     name: 'Dumbbell Bench Press',
     sortOrder: 1,
+    recommendedRestMs: 90_000, // 1:30 — moderate dumbbell press
   },
   {
     id: 'a3e9d7b5-2c41-4f6e-8d0a-7b9c1e3f5a02',
     equipmentId: EQUIPMENT_IDS.dumbbells,
     name: 'Dumbbell Row',
     sortOrder: 2,
+    recommendedRestMs: 90_000, // 1:30 — moderate dumbbell pull
   },
   {
     id: 'a3e9d7b5-2c41-4f6e-8d0a-7b9c1e3f5a03',
     equipmentId: EQUIPMENT_IDS.barbell,
     name: 'Back Squat',
     sortOrder: 1,
+    recommendedRestMs: 150_000, // 2:30 — heavy compound barbell lift
   },
   {
     id: 'a3e9d7b5-2c41-4f6e-8d0a-7b9c1e3f5a04',
     equipmentId: EQUIPMENT_IDS.barbell,
     name: 'Deadlift',
     sortOrder: 2,
+    recommendedRestMs: 180_000, // 3:00 — heaviest compound lift
   },
 ];

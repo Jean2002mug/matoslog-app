@@ -13,12 +13,20 @@ weight and reps. Everything is stored on the device in SQLite: no account, no ne
   (Back Squat, Deadlift), seeded on first launch.
 - **Equipment-aware weights:** dumbbell weight is entered *per dumbbell*. Barbell weight is the
   *total*, including the 20 kg bar, and can't be lower than the bar.
-- **Workout logging:** logging the first set starts a workout. Delete a wrong set, then finish
-  or discard the workout, with confirmation.
-- **Timers:** a live workout clock, and a rest countdown (1:30 by default, ±15 s, Skip) that
-  starts after each set and vibrates once when the rest is over.
-- **History:** finished workouts, newest first, with exercises, sets and duration. Each workout
-  shows its sets grouped by exercise. Finished workouts are read-only.
+- **Workout logging:** logging the first set starts a workout. The form is pre-filled with the
+  weight and reps from last time. Delete a wrong set, then finish the workout.
+- **Workout timer:** a live clock with **Pause/Resume**, **Finish** and **Cancel**. Cancel
+  discards the whole workout, after asking.
+- **Rest timer:** starts after each set, with **Pause/Resume**, **Reset**, **±15 s** and
+  **Cancel**. Cancel stops only the rest, after asking. It vibrates once when the rest is over.
+- **Recommended rest times:** each exercise has a recommendation (2:30 for squats, 3:00 for
+  deadlifts, 1:30 for dumbbell lifts) that you can change per exercise or reset.
+- **"Don't ask again":** each cancel question can be skipped from then on, and switched back on
+  in **Settings**.
+- **History:** finished workouts, newest first, with exercises, sets, duration and time paused.
+  Each workout shows its sets grouped by exercise. Finished workouts are read-only.
+- **Fully offline:** workouts, timers (even a paused rest) and settings are saved on the phone
+  and survive closing the app.
 
 ## Getting started
 
@@ -66,11 +74,13 @@ src/
   app/          Routes only (Expo Router). One folder + Stack per tab:
                 (equipment)/ -> Equipment, Exercises, Log sets
                 history/     -> History, Workout detail
-  domain/       Pure TypeScript: types, weight rules, history helpers (no React, no SQL)
-  services/     CatalogService, WorkoutService: validate input, return typed Results
+                settings/    -> Settings
+  domain/       Pure TypeScript: types, weight and timer rules, history helpers (no React, no SQL)
+  services/     CatalogService, WorkoutService, SettingsService: validate input, return typed
+                Results; all share one OperationQueue
   data/         Repository interfaces, SQLite adapters, migrations, seed data
-  features/     Screen components per feature (catalog, workout, history)
-  components/   Shared UI (buttons, list rows, the screen scroll view)
+  features/     Screen components per feature (catalog, workout, history, settings)
+  components/   Shared UI (buttons, list rows, confirm dialog, the screen scroll view)
 tests/          Jest tests, mirroring the features
 ```
 
@@ -85,11 +95,14 @@ tests/          Jest tests, mirroring the features
 - **At most one active workout:** enforced by a partial unique index in the database itself.
 - **Finished workouts are immutable:** the service checks this, and database triggers block
   changes even from raw SQL.
-- **Every write is one transaction** and re-checks the active workout inside it.
-  `WorkoutService` also queues operations so two writes can never interleave.
+- **Every write is one transaction** and re-checks the active workout inside it. All services
+  share one queue, so two writes can never interleave. This matters because expo-sqlite's
+  transactions aren't exclusive.
 - **Timers count from timestamps, not ticks.** Phones pause JavaScript timers in the background,
-  so the workout clock uses the saved start time and the rest timer uses its end time. Both are
-  still correct when you return.
+  so the clock and rest are computed from saved times ("started at", "paused at", "ends at").
+  They're still correct when you come back, and every change is a small pure function.
+- **Timers belong to the workout:** they're stored on the workout's row. Finishing clears them,
+  and cancelling the workout deletes them along with it.
 - **Catalog-driven UI:** weight rules come from the equipment's data. A new equipment row that
   uses an existing rule (say, an EZ bar with a 10.25 kg bar) works with no code changes.
 
@@ -103,9 +116,10 @@ npm test
   `node:sqlite` so it looks like expo-sqlite. The app's actual migrations, constraints, indexes
   and triggers run in Jest, with no device needed.
 - **Screen tests** use React Native Testing Library. For example, they type a weight and reps,
-  tap "Add set", and check that the set appears.
-- **Domain tests** cover weight parsing, the rules for each piece of equipment, and history
-  formatting.
+  tap "Add set", and check that the set appears. Timer tests fast-forward a fake clock to check
+  pauses, resets, cancels and the single vibration, including after "closing the app".
+- **Domain tests** cover weight parsing, the rules for each piece of equipment, the timer
+  functions, and history formatting.
 
 ## Scope
 
@@ -119,7 +133,7 @@ npm test
   cross-origin headers to run in a browser.
 - **The rest timer only alerts while the app is open.** If the app is in the background when rest
   ends, there's no notification; the timer shows the right time when you come back.
-- **Tab icons** are placeholders from the Expo starter.
+- **The app icon and splash screen** are still Expo's default artwork. They need a designed icon.
 
 ## License
 

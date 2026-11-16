@@ -35,8 +35,8 @@ describe('starting and logging', () => {
   });
 
   it('the first set starts a workout; later sets join it in order', async () => {
-    await repo.addSet({ exerciseId: squat.id, weightCg: 10000, reps: 5 });
-    await repo.addSet({ exerciseId: row.id, weightCg: 2250, reps: 10 });
+    await repo.addSet({ exerciseId: squat.id, weightCg: 10000, reps: 5, restMs: 90_000 });
+    await repo.addSet({ exerciseId: row.id, weightCg: 2250, reps: 10, restMs: 90_000 });
 
     const active = await repo.getActiveWorkout();
     expect(active?.workout).toEqual({
@@ -44,6 +44,10 @@ describe('starting and logging', () => {
       status: 'active',
       startedAt: '2026-11-12T18:30:00.000Z',
       finishedAt: null,
+      pausedAt: null,
+      pausedMs: 0,
+      // Every set starts its rest; the clock is frozen in this test, so it's the full 1:30.
+      rest: { durationMs: 90_000, endsAt: '2026-11-12T18:31:30.000Z', remainingMs: null },
     });
     expect(active?.sets.map((s) => [s.exerciseId, s.weightCg, s.reps, s.position])).toEqual([
       [squat.id, 10000, 5, 1],
@@ -54,7 +58,7 @@ describe('starting and logging', () => {
 
   it('rolls back completely on failure: a bad exercise leaves no workout behind', async () => {
     await expect(
-      repo.addSet({ exerciseId: 'no-such-exercise', weightCg: 1000, reps: 5 }),
+      repo.addSet({ exerciseId: 'no-such-exercise', weightCg: 1000, reps: 5, restMs: 90_000 }),
     ).rejects.toThrow(/FOREIGN KEY/);
 
     expect(count('workout')).toBe(0);
@@ -64,17 +68,17 @@ describe('starting and logging', () => {
 
 describe('one active workout at most', () => {
   it('the database itself rejects a second active workout', async () => {
-    await repo.addSet({ exerciseId: squat.id, weightCg: 10000, reps: 5 });
+    await repo.addSet({ exerciseId: squat.id, weightCg: 10000, reps: 5, restMs: 90_000 });
 
     expect(() =>
-      db.raw.exec(`INSERT INTO workout VALUES ('rogue', 'active', '2026-11-12T19:00:00Z', NULL)`),
+      db.raw.exec(`INSERT INTO workout (id, status, started_at) VALUES ('rogue', 'active', '2026-11-12T19:00:00Z')`),
     ).toThrow(/UNIQUE constraint failed/);
   });
 });
 
 describe('deleting sets', () => {
   it('deletes a set from the active workout', async () => {
-    const set = await repo.addSet({ exerciseId: squat.id, weightCg: 10000, reps: 5 });
+    const set = await repo.addSet({ exerciseId: squat.id, weightCg: 10000, reps: 5, restMs: 90_000 });
     await repo.deleteSet(set.id);
 
     expect((await repo.getActiveWorkout())?.sets).toEqual([]);
@@ -87,7 +91,7 @@ describe('deleting sets', () => {
 
 describe('finishing', () => {
   it('completes the workout and records the finish time', async () => {
-    await repo.addSet({ exerciseId: squat.id, weightCg: 10000, reps: 5 });
+    await repo.addSet({ exerciseId: squat.id, weightCg: 10000, reps: 5, restMs: 90_000 });
     await repo.finishActiveWorkout();
 
     expect(await repo.getActiveWorkout()).toBeNull();
@@ -98,16 +102,16 @@ describe('finishing', () => {
   });
 
   it('the next set after finishing starts a brand-new workout', async () => {
-    await repo.addSet({ exerciseId: squat.id, weightCg: 10000, reps: 5 });
+    await repo.addSet({ exerciseId: squat.id, weightCg: 10000, reps: 5, restMs: 90_000 });
     await repo.finishActiveWorkout();
-    await repo.addSet({ exerciseId: squat.id, weightCg: 10500, reps: 5 });
+    await repo.addSet({ exerciseId: squat.id, weightCg: 10500, reps: 5, restMs: 90_000 });
 
     expect(count('workout')).toBe(2);
     expect((await repo.getActiveWorkout())?.sets).toHaveLength(1);
   });
 
   it('refuses to finish an empty workout', async () => {
-    const set = await repo.addSet({ exerciseId: squat.id, weightCg: 10000, reps: 5 });
+    const set = await repo.addSet({ exerciseId: squat.id, weightCg: 10000, reps: 5, restMs: 90_000 });
     await repo.deleteSet(set.id);
 
     await expectWorkoutError(repo.finishActiveWorkout(), 'empty_workout');
@@ -122,7 +126,7 @@ describe('completed workouts are immutable', () => {
   let setId: string;
 
   beforeEach(async () => {
-    setId = (await repo.addSet({ exerciseId: squat.id, weightCg: 10000, reps: 5 })).id;
+    setId = (await repo.addSet({ exerciseId: squat.id, weightCg: 10000, reps: 5, restMs: 90_000 })).id;
     await repo.finishActiveWorkout();
   });
 
@@ -143,8 +147,8 @@ describe('completed workouts are immutable', () => {
 
 describe('discarding', () => {
   it('deletes the active workout and all its sets', async () => {
-    await repo.addSet({ exerciseId: squat.id, weightCg: 10000, reps: 5 });
-    await repo.addSet({ exerciseId: row.id, weightCg: 2250, reps: 10 });
+    await repo.addSet({ exerciseId: squat.id, weightCg: 10000, reps: 5, restMs: 90_000 });
+    await repo.addSet({ exerciseId: row.id, weightCg: 2250, reps: 10, restMs: 90_000 });
     await repo.discardActiveWorkout();
 
     expect(await repo.getActiveWorkout()).toBeNull();
@@ -153,7 +157,7 @@ describe('discarding', () => {
   });
 
   it('never touches completed workouts', async () => {
-    await repo.addSet({ exerciseId: squat.id, weightCg: 10000, reps: 5 });
+    await repo.addSet({ exerciseId: squat.id, weightCg: 10000, reps: 5, restMs: 90_000 });
     await repo.finishActiveWorkout();
 
     await expectWorkoutError(repo.discardActiveWorkout(), 'no_active_workout');

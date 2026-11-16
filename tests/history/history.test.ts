@@ -1,11 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 
 import { SEED_EQUIPMENT, SEED_EXERCISES } from '@/data/seed-data';
-import { SqliteCatalogRepository } from '@/data/sqlite-catalog-repository';
-import { SqliteWorkoutRepository } from '@/data/sqlite-workout-repository';
 import { formatDuration, groupSetsByExercise, plural } from '@/domain/history';
 import type { WorkoutSet } from '@/domain/workout';
-import { WorkoutService } from '@/services/workout-service';
+import { createServices } from '@/services/create-services';
+import type { WorkoutService } from '@/services/workout-service';
 
 import { createInitializedTestDb, type TestDb } from '../helpers/node-sqlite-db';
 
@@ -68,10 +67,7 @@ describe('history queries (real SQLite)', () => {
     db = await createInitializedTestDb();
     let id = 0;
     clock = new Date('2026-11-10T18:00:00.000Z');
-    service = new WorkoutService(
-      new SqliteWorkoutRepository(db, { newId: () => `id-${++id}`, now: () => clock }),
-      new SqliteCatalogRepository(db),
-    );
+    service = createServices(db, { newId: () => `id-${++id}`, now: () => clock }).workout;
   });
   afterEach(() => db.close());
 
